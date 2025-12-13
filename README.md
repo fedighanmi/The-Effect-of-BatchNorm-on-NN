@@ -1,7 +1,6 @@
 # The-Effect-of-BatchNorm-on-NN
 
-This repository studies the effect of **Batch Normalization** on neural network training and performance using a **fixed neural network architecture**.  
-The goal is to isolate and analyze the impact of BatchNorm by keeping all other components of the training pipeline unchanged.
+This repository studies the effect of **Batch Normalization** on neural network training and performance using a **fixed neural network architecture**. The goal is to isolate and analyze the impact of BatchNorm by keeping all other components of the training unchanged.
 
 ## Objective
 
