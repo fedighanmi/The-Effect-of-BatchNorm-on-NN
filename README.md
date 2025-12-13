@@ -36,4 +36,7 @@ Each dataset is analyzed independently.
 - `requirements.txt`  
   List of required Python dependencies.
 
+## Results Summary
+- `Results.pdf`
+  Contains a summary of findings and presentation of results.
 
