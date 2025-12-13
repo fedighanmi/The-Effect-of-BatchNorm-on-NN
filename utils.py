@@ -297,4 +297,39 @@ def visualize_linear1_weights_2d(network, input_shape, nrow=4, ncol=4, figsize=(
 
     plt.tight_layout()
     plt.show()
-    
+
+
+""" 
+pbar1 = tqdm(range(epochs), desc="Epochs", position=0)
+for epoch in pbar1:
+    model_no_bn.train()
+    running_loss = 0.0
+
+    pbar2 = tqdm(train_loader, desc="Batches", position=1)
+    for x, y in pbar2:
+        outputs = model_no_bn(x)
+        loss = criterion(outputs, y)
+        optimizer_1.zero_grad()
+        loss.backward()
+        optimizer_1.step()
+
+        running_loss += loss.item()
+
+        pbar2.set_description(f"Loss: {loss.item():.4f}")
+
+    pbar1.set_description(f"Loss: {running_loss/len(train_loader):.4f}")
+
+
+# Individual Test accuracy
+model.eval()
+correct = 0
+total = 0
+with torch.no_grad():
+    for x, y in test_loader:
+        outputs = model(x)
+        _, predicted = torch.max(outputs.data, 1)
+        total += y.size(0)
+        correct += (predicted == y).sum().item()
+
+print(f'Test Accuracy: {100 * correct / total:.2f}%')
+"""
