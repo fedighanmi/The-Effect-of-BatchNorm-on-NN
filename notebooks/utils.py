@@ -16,7 +16,10 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 
-def plot_training_curves(loss_curve, accuracy_curve, epoch_markers, epochs, baseline):
+############### GENERAL ###############
+
+
+def plot_training_curves(loss_curve, accuracy_curve, epoch_markers, epochs):
     """
     Plots loss and accuracy curves for training monitoring.
 
@@ -70,14 +73,52 @@ def plot_compare_training_curves(loss_bn, loss_no_bn, acc_bn, acc_no_bn, epochs)
     plt.show()
 
 
-def train_model(model, optimizer, criterion, train_loader, test_loader, epochs):
+def plot_compare_training_eval_curves(acc_eval, acc_no_eval, epochs):
+
+    plt.figure(figsize=(12, 4))
+    plt.title("BatchNorm: Eval Mode vs Train Mode (Test Accuracy)")
+
+    plt.plot(range(1, epochs + 1), acc_no_eval, label="No Eval", color="C0", marker="o")
+    plt.plot(range(1, epochs + 1), acc_eval, label="Eval", color="C1", marker="o")
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Test Accuracy (%)")
+    plt.legend()
+    plt.show()
+
+
+def plot_compare_training_batch_curves(loss_bn, loss_no_bn, acc_bn, acc_no_bn, batch_number):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    fig.suptitle("BatchNorm vs No BatchNorm – Training Curves Across Batch Sizes")
+
+    # ---- Loss ----
+    ax1.plot(range(1, batch_number + 1), loss_no_bn, label="No BN", color="C0", marker="o")
+    ax1.plot(range(1, batch_number + 1), loss_bn, label="With BN", color="C1", marker="o")
+    ax1.set_title("Cross-Entropy Loss")
+    ax1.set_xlabel("Batch Number")
+    ax1.set_ylabel("Loss")
+    ax1.legend()
+
+    # ---- Accuracy ----
+    ax2.plot(range(1, batch_number + 1), acc_no_bn, label="No BN", color="C0", marker="o")
+    ax2.plot(range(1, batch_number + 1), acc_bn, label="With BN", color="C1", marker="o")
+    ax2.set_title("Test Accuracy (%)")
+    ax2.set_xlabel("Batch Number")
+    ax2.set_ylabel("Accuracy (%)")
+    ax2.legend()
+
+    fig.tight_layout()
+    plt.show()
+
+
+def train_model(model, optimizer, criterion, train_loader, test_loader, epochs, eval_status=True):
     train_losses, test_accuracies = [], []
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), desc="Epochs"):
         model.train()
         running_loss = 0.0
 
-        for x, y in train_loader:
+        for x, y in tqdm(train_loader, desc="Training batches"):
             outputs = model(x)
             loss = criterion(outputs, y)
             optimizer.zero_grad()
@@ -89,7 +130,10 @@ def train_model(model, optimizer, criterion, train_loader, test_loader, epochs):
         train_losses.append(running_loss / len(train_loader))
 
         # Evaluate accuracy
-        model.eval()
+        if eval_status:
+            model.eval()
+        else:
+            pass
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in test_loader:
@@ -102,99 +146,7 @@ def train_model(model, optimizer, criterion, train_loader, test_loader, epochs):
     return train_losses, test_accuracies
 
 
-# //////// CIFAR10 POSTER /////////
-
-
-def total_variation_loss(img):
-    """
-    Computes total variation loss for smoothness regularization.
-    """
-    tv_loss = torch.sum(torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:])) + \
-              torch.sum(torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :]))
-    return tv_loss
-
-
-def generate_class_image(net, device, class_idx, iterations=1000, lr=0.001,
-                         tv_weight=0.000185, blur_every=50):
-    """
-    Generates an image that maximally activates the specified class in the network.
-
-    Args:
-        net (torch.nn.Module): The trained neural network.
-        device (torch.device): Device to run the generation on.
-        class_idx (int): Index of the class to visualize.
-        iterations (int): Number of optimization steps.
-        lr (float): Learning rate.
-        tv_weight (float): Weight for total variation loss.
-        blur_every (int): Frequency of applying Gaussian blur for regularization.
-
-    Returns:
-        torch.Tensor: Generated class image (normalized, shape: H x W x C).
-    """
-    img = torch.randn((1, 3, 32, 32), requires_grad=True, device=device)
-    optimizer = torch.optim.AdamW([img], lr=lr)
-    blur = GaussianBlur(kernel_size=3, sigma=1)
-
-    for i in range(iterations):
-        optimizer.zero_grad()
-
-        # Apply blur every `blur_every` iterations
-        if i % blur_every == 0:
-            with torch.no_grad():
-                img.data = blur(img.data)
-
-        out = net(img)
-        class_loss = -out[0, class_idx] + out[0, :].mean()
-        tv_loss = total_variation_loss(img) * tv_weight
-        loss = class_loss + tv_loss
-
-        loss.backward()
-        optimizer.step()
-
-        img.data = img.data.clamp(-3, 3)
-
-    # Normalize image for visualization
-    img = img.detach().cpu()
-    img = img - img.min()
-    img = img / img.max()
-    img = img.squeeze(0).permute(1, 2, 0)  # (C, H, W) -> (H, W, C)
-    return img
-
-
-def generate_images_for_all_classes(net, device, class_names,
-                                    iterations=1050, lr=0.0015, show=True):
-    """
-    Generates and optionally displays class-activating images for each class in the model.
-
-    Args:
-        net (torch.nn.Module): Trained model.
-        device (torch.device): CPU or GPU.
-        class_names (list): List of class names corresponding to indices.
-        iterations (int): Number of optimization iterations per class.
-        lr (float): Learning rate.
-        show (bool): Whether to display images with matplotlib.
-
-    Returns:
-        list: List of generated class images as torch.Tensor.
-    """
-    net.to(device)
-    images = []
-
-    for idx, class_name in enumerate(class_names):
-        print(f'Generating image for class: {class_name}')
-        img = generate_class_image(net, device, idx, iterations=iterations, lr=lr)
-        images.append(img)
-
-        if show:
-            plt.figure(figsize=(2, 2))
-            plt.imshow(img)
-            plt.axis('off')
-            plt.title(f'{class_name}')
-            plt.show()
-
-    return images
-
-# ////////// MNIST POSTER ///////////////
+############### MNIST POSTER ###############
 
 
 def show_fixed_predictions(model, images, labels):
@@ -299,37 +251,182 @@ def visualize_linear1_weights_2d(network, input_shape, nrow=4, ncol=4, figsize=(
     plt.show()
 
 
-""" 
-pbar1 = tqdm(range(epochs), desc="Epochs", position=0)
-for epoch in pbar1:
-    model_no_bn.train()
-    running_loss = 0.0
+def get_relu_activations(model, data_loader):
+    activations = []
 
-    pbar2 = tqdm(train_loader, desc="Batches", position=1)
-    for x, y in pbar2:
-        outputs = model_no_bn(x)
-        loss = criterion(outputs, y)
-        optimizer_1.zero_grad()
+    def hook(module, input, output):
+        activations.append(output.detach())
+
+    relu_layer = None
+    for layer in model.net:
+        if isinstance(layer, nn.ReLU):
+            relu_layer = layer
+            break
+
+    handle = relu_layer.register_forward_hook(hook)
+
+    model.eval()
+    with torch.no_grad():
+        for x, _ in data_loader:
+            model(x)
+
+    handle.remove()
+    return torch.cat(activations, dim=0)
+
+
+def count_dead_neurons(activations, threshold=0.99):
+    if activations.dim() == 2:
+        zero_fraction = (activations == 0).float().mean(dim=0)
+    elif activations.dim() == 4:
+        zero_fraction = (activations == 0).float().mean(dim=(0, 2, 3))
+    else:
+        raise ValueError("Unsupported activation shape")
+
+    dead_neurons = (zero_fraction > threshold).sum().item()
+    avg_zero_rate = zero_fraction.mean().item()
+    return dead_neurons, avg_zero_rate
+
+
+def dead_neuron_plot(dead_no_bn, avg_zero_no_bn, dead_bn, avg_zero_bn):
+
+  fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+  # ---- Left: Dead Neurons ----
+  axes[0].bar("No BN", dead_no_bn, color="C0")
+  axes[0].bar("With BN", dead_bn, color="C1")
+  axes[0].set_title("Dead Neurons")
+  axes[0].set_ylabel("Count")
+
+  # ---- Right: Average Zero Rate ----
+  axes[1].bar("No BN", avg_zero_no_bn, color="C0")
+  axes[1].bar("With BN", avg_zero_bn, color="C1")
+  axes[1].set_title("Average Zero Activation Rate")
+  axes[1].set_ylabel("Zero Rate")
+
+  plt.tight_layout()
+  plt.show()
+
+
+############### CIFAR10 POSTER ###############
+
+
+def total_variation_loss(img):
+    """
+    Computes total variation loss for smoothness regularization.
+    """
+    tv_loss = torch.sum(torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:])) + \
+              torch.sum(torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :]))
+    return tv_loss
+
+
+def generate_class_image(net, device, class_idx, iterations=1000, lr=0.001,
+                         tv_weight=0.000185, blur_every=50):
+    """
+    Generates an image that maximally activates the specified class in the network.
+
+    Args:
+        net (torch.nn.Module): The trained neural network.
+        device (torch.device): Device to run the generation on.
+        class_idx (int): Index of the class to visualize.
+        iterations (int): Number of optimization steps.
+        lr (float): Learning rate.
+        tv_weight (float): Weight for total variation loss.
+        blur_every (int): Frequency of applying Gaussian blur for regularization.
+
+    Returns:
+        torch.Tensor: Generated class image (normalized, shape: H x W x C).
+    """
+    img = torch.randn((1, 3, 32, 32), requires_grad=True, device=device)
+    optimizer = torch.optim.AdamW([img], lr=lr)
+    blur = GaussianBlur(kernel_size=3, sigma=1)
+
+    for i in range(iterations):
+        optimizer.zero_grad()
+
+        # Apply blur every `blur_every` iterations
+        if i % blur_every == 0:
+            with torch.no_grad():
+                img.data = blur(img.data)
+
+        out = net(img)
+        class_loss = -out[0, class_idx] + out[0, :].mean()
+        tv_loss = total_variation_loss(img) * tv_weight
+        loss = class_loss + tv_loss
+
         loss.backward()
-        optimizer_1.step()
+        optimizer.step()
 
-        running_loss += loss.item()
+        img.data = img.data.clamp(-3, 3)
 
-        pbar2.set_description(f"Loss: {loss.item():.4f}")
+    # Normalize image for visualization
+    img = img.detach().cpu()
+    img = img - img.min()
+    img = img / img.max()
+    img = img.squeeze(0).permute(1, 2, 0)  # (C, H, W) -> (H, W, C)
+    return img
 
-    pbar1.set_description(f"Loss: {running_loss/len(train_loader):.4f}")
+
+def generate_images_for_all_classes(net, device, class_names,
+                                    iterations=1050, lr=0.0015, show=True):
+    """
+    Generates and optionally displays class-activating images for each class in the model.
+
+    Args:
+        net (torch.nn.Module): Trained model.
+        device (torch.device): CPU or GPU.
+        class_names (list): List of class names corresponding to indices.
+        iterations (int): Number of optimization iterations per class.
+        lr (float): Learning rate.
+        show (bool): Whether to display images with matplotlib.
+
+    Returns:
+        list: List of generated class images as torch.Tensor.
+    """
+    net.to(device)
+    images = []
+
+    for idx, class_name in enumerate(class_names):
+        print(f'Generating image for class: {class_name}')
+        img = generate_class_image(net, device, idx, iterations=iterations, lr=lr)
+        images.append(img)
+
+        if show:
+            plt.figure(figsize=(2, 2))
+            plt.imshow(img)
+            plt.axis('off')
+            plt.title(f'{class_name}')
+            plt.show()
+
+    return images
 
 
-# Individual Test accuracy
-model.eval()
-correct = 0
-total = 0
-with torch.no_grad():
-    for x, y in test_loader:
-        outputs = model(x)
-        _, predicted = torch.max(outputs.data, 1)
-        total += y.size(0)
-        correct += (predicted == y).sum().item()
+def get_all_relu_activations(model, data_loader):
+    activations = {}
 
-print(f'Test Accuracy: {100 * correct / total:.2f}%')
-"""
+    def make_hook(layer_idx):
+        def hook(module, input, output):
+            activations[layer_idx].append(output.detach())
+        return hook
+
+    handles = []
+    for idx, layer in enumerate(model.net):
+        if isinstance(layer, nn.ReLU):
+            activations[idx] = []
+            handles.append(layer.register_forward_hook(make_hook(idx)))
+
+    if not activations:
+        raise ValueError("No ReLU layers found in model")
+
+    model.eval()
+    with torch.no_grad():
+        for x, _ in data_loader:
+            model(x)
+
+    for h in handles:
+        h.remove()
+
+    # Concatenate batches per layer
+    for idx in activations:
+        activations[idx] = torch.cat(activations[idx], dim=0)
+
+    return activations
