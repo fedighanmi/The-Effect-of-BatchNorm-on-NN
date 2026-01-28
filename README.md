@@ -33,5 +33,6 @@ Each dataset is analyzed independently.
 ## Results Summary
 - `POSTER_1_RESULTS.pdf`
 - `POSTER_2_RESULTS.pdf`
-  Contains a summary of findings and presentation of results.
+
+Contains a summary of findings and presentation of results.
 
