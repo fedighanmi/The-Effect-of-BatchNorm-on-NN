@@ -1,15 +1,14 @@
 # The-Effect-of-BatchNorm-on-NN
 
-This repository studies the effect of **Batch Normalization** on neural network training and performance using a **fixed neural network architecture**. The goal is to isolate and analyze the impact of BatchNorm by keeping all other components of the training unchanged.
+This repository studies the effect of **Batch Normalization** on neural network training and performance using an **identical neural network architecture** between experiments. The goal is to isolate and analyze the impact of BatchNorm by keeping all other components of the training unchanged.
 
 ## Objective
 
 The main objective of this project is to understand how Batch Normalization affects:
 - Training stability
 - Convergence behavior
-- Final classification accuracy
+- Stress testing behavior
   
-This is specifically for a relatively small number of epochs.
 
 ## Datasets
 
@@ -22,20 +21,17 @@ Each dataset is analyzed independently.
 
 ## Repository Structure
 
+- `notebooks`  
+  folder containing the jupyter notebooks used to train, test and analyse on the **CIFAR-10** and **MNIST** dataset.
 
-- `01_Poster_CIFAR10.ipynb`  
-  Notebook used to train, test and analyse on the **CIFAR-10** dataset.
-  
-- `01_Poster_MNIST.ipynb`  
-  Notebook used to also train, test and analyse on the **MNIST** dataset.
-
-- `utils.py`  
+- `notebooks/utils.py`  
   Pool of functions for training loops, evaluation, plotting, and visualization.
 
 - `requirements.txt`  
   List of required Python dependencies.
 
 ## Results Summary
-- `Results.pdf`
+- `POSTER_1_RESULTS.pdf`
+- `POSTER_2_RESULTS.pdf`
   Contains a summary of findings and presentation of results.
 
